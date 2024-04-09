@@ -1,29 +1,31 @@
 import board
 import terminalio
 from adafruit_display_text import bitmap_label
-from adafruit_lc709203f import LC709203F, PackSize
+import adafruit_max1704x
 import json
 import storage
 import touchio
 import time
 import alarm
+import digitalio
 
 text_scale = 2
 
 i2c = board.I2C()
-battery_monitor = LC709203F(i2c)
+battery_monitor = adafruit_max1704x.MAX17048(board.I2C())
 
-touch_one = touchio.TouchIn(board.D8)
-touch_two = touchio.TouchIn(board.D1)
-touch_three = touchio.TouchIn(board.D5)
+button_one = digitalio.DigitalInOut(board.D0)
+button_one.switch_to_input(pull=digitalio.Pull.UP)
 
-touch_one.threshold = 10000
-touch_two.threshold = 10000
-touch_three.threshold = 10000
+button_two = digitalio.DigitalInOut(board.D1)
+button_two.switch_to_input(pull=digitalio.Pull.DOWN)
+
+button_three = digitalio.DigitalInOut(board.D2)
+button_three.switch_to_input(pull=digitalio.Pull.DOWN)
 
 board.DISPLAY.brightness = 1
 
-sleepAlarm = alarm.pin.PinAlarm(pin=board.BUTTON, value=False, pull=True)
+sleepAlarm = alarm.touch.TouchAlarm(pin=board.D10)
 
 screen_size_x = 13
 screen_size_y = 4
@@ -54,22 +56,22 @@ def write_scout_report(data):
     storage.remount("/", readonly=True)
 
 def get_button_one():
-    return touch_one.value
+    return button_one.value
 
 def get_button_two():
-    return touch_two.value
+    return button_two.value
 
 def get_button_three():
-    return touch_three.value
+    return button_three.value
 
 def down_button():
-    return get_button_two()
+    return get_button_three()
 
 def up_button():
     return get_button_one()
 
 def enter_button():
-    return get_button_three()
+    return get_button_two()
 
 cursor = 0
 
@@ -146,7 +148,7 @@ def prompt_number(title, step=1):
             return current
         display_text(f"{title}:\n\n{current}")
         time.sleep(0.1)
-    
+
 def prompt_true_false(title):
     global cursor
     cursor = 0
@@ -195,15 +197,15 @@ while True:
             robot_dnf = prompt_true_false("Robot DNF")
 
             write_scout_report(
-                [team_number, auto_purple_pixel, auto_yellow_pixel, auto_white_pixels, auto_parking, teleop_pixels, 
-                drone_points, rigging, parking, mosiacs, set_lines, robot_issues, robot_dnf]
-                )
-            
+                [team_number, auto_purple_pixel, auto_yellow_pixel, auto_white_pixels, auto_parking, teleop_pixels,
+                 drone_points, rigging, parking, mosiacs, set_lines, robot_issues, robot_dnf]
+            )
+
             display_text("Saved!")
             time.sleep(3)
         if cursor == 2:
             board.DISPLAY.brightness = 0
             alarm.exit_and_deep_sleep_until_alarms(sleepAlarm)
 
-    display_text("Main Menu\n" + [f"Battery\n\t{get_battery_charge()}%", f"Create Report\n\t{get_num_reports()} Stored", "Sleep"][cursor])
+    display_text("Main Menu\n" + [f"Battery\n\t{get_battery_charge():.1f}%", f"Create Report\n\t{get_num_reports()} Stored", "Sleep"][cursor])
     time.sleep(0.1)
